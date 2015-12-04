@@ -1,10 +1,26 @@
 Automatically downloads all completed espa scenes.  Each scene is downloaded to the `--target_directory` and organized by order.
 
 # Installation
-* Tested with python 2.7.
-* Clone this repository: `git clone https://github.com/USGS-EROS/espa-bulk-downloader.git bulk-downloader`
-* `cd bulk-downloader`
-* `python ./download_espa_order.py -h`
+* Note: These were tested with python 2.7.
+
+* Clone this repository:
+```
+git clone https://github.com/USGS-EROS/espa-bulk-downloader.git bulk-downloader
+cd bulk-downloader
+python ./download_espa_order.py -h
+```
+* Install with pip automatically:
+```
+pip install git+https://github.com/USGS-EROS/espa-bulk-downloader.git
+download_espa_order.py -h
+```
+* Install with setup.py manually:
+```
+git clone https://github.com/USGS-EROS/espa-bulk-downloader.git bulk-downloader
+cd bulk-downloader
+python setup.py install
+download_espa_order.py -h
+```
 
 ### Runtime options
 `-e or --email` The email address used to submit the order
