@@ -14,6 +14,7 @@ python ./download_espa_order.py -h
 pip install git+https://github.com/USGS-EROS/espa-bulk-downloader.git
 download_espa_order.py -h
 ```
+* Alternatively you can just download the stand alone zip file which only requires python to run
 
 ### Runtime options
 `-e or --email` The email address used to submit the order
