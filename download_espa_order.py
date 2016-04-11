@@ -74,8 +74,9 @@ class Scene(object):
                   
 class LocalStorage(object):
     
-    def __init__(self, basedir):
+    def __init__(self, basedir, maxretry=10):
         self.basedir = basedir
+        self.maxretry = maxretry
                     
     def directory_path(self, scene):
         return ''.join([self.basedir, os.sep, scene.orderid, os.sep])
@@ -91,7 +92,8 @@ class LocalStorage(object):
     
     def store(self, scene):
         
-        if self.is_stored(scene): return
+        if self.is_stored(scene):
+            return
                     
         download_directory = self.directory_path(scene)
         
@@ -100,14 +102,33 @@ class LocalStorage(object):
             os.makedirs(download_directory)
             print ("Created target_directory:%s" % download_directory)
         
-        req = urllib2.urlopen(scene.srcurl)
+        req = urllib2.Request(scene.srcurl)
+        req.get_method = lambda: 'HEAD'
 
-        print ("Copying %s to %s" % (scene.name, download_directory))
-        
-        with open(self.tmp_scene_path(scene), 'wb') as target_handle:
-            shutil.copyfileobj(req, target_handle)
-        
+        head = urllib2.urlopen(req)
+        file_size = int(head.headers['Content-Length'])
+
+        if os.path.exists(self.tmp_scene_path(scene)):
+            first_byte = os.path.getsize(self.tmp_scene_path(scene))
+        else:
+            first_byte = 0
+
+        print ("Downloading %s to %s" % (scene.name, download_directory))
+
+        while first_byte < file_size:
+            first_byte = self._download(first_byte)
+
         os.rename(self.tmp_scene_path(scene), self.scene_path(scene))
+
+    def _download(self, first_byte):
+        req = urllib2.Request(scene.srcurl)
+        req.headers['Range'] = 'bytes={}-'.format(first_byte)
+
+        with open(self.tmp_scene_path(scene), 'ab') as target:
+                with open(urllib2.urlopen(req)) as source:
+                    shutil.copyfileobj(source, target)
+
+        return os.path.getsize(self.tmp_scene_path(scene))
 
 
 if __name__ == '__main__':
@@ -144,7 +165,11 @@ if __name__ == '__main__':
                         
     parser.add_argument("-d", "--target_directory",
                         required=True,
-                        help="where to store the downloaded scenes")   
+                        help="where to store the downloaded scenes")
+
+    parser.add_argument('-r', '--retry_limit',
+                        required=False,
+                        help='Max number of retries on a download before erroring out')
     
     args = parser.parse_args()
     
