@@ -76,10 +76,9 @@ class Scene(object):
                   
 class LocalStorage(object):
     
-    def __init__(self, basedir, maxretry=10):
+    def __init__(self, basedir):
         self.basedir = basedir
-        self.maxretry = maxretry
-                    
+
     def directory_path(self, scene):
         return ''.join([self.basedir, os.sep, scene.orderid, os.sep])
         
