@@ -16,6 +16,9 @@ import urllib2
 import argparse
 import shutil
 import os
+import time
+import random
+
 
 class SceneFeed(object):
     """SceneFeed parses the ESPA RSS Feed for the named email address and generates
@@ -36,8 +39,7 @@ class SceneFeed(object):
         self.host = host
         
         self.feed_url = "%s/ordering/status/%s/rss/" % (self.host, self.email)
-        
-        
+
     def get_items(self, orderid='ALL'):
         """get_items generates Scene objects for all scenes that are available to be
         downloaded.  Supply an orderid to look for a particular order, otherwise all
@@ -117,6 +119,7 @@ class LocalStorage(object):
 
         while first_byte < file_size:
             first_byte = self._download(first_byte)
+            time.sleep(random.randint(5, 30))
 
         os.rename(self.tmp_scene_path(scene), self.scene_path(scene))
 
@@ -125,8 +128,8 @@ class LocalStorage(object):
         req.headers['Range'] = 'bytes={}-'.format(first_byte)
 
         with open(self.tmp_scene_path(scene), 'ab') as target:
-                with open(urllib2.urlopen(req)) as source:
-                    shutil.copyfileobj(source, target)
+            source = urllib2.urlopen(req)
+            shutil.copyfileobj(source, target)
 
         return os.path.getsize(self.tmp_scene_path(scene))
 
@@ -167,13 +170,10 @@ if __name__ == '__main__':
                         required=True,
                         help="where to store the downloaded scenes")
 
-    parser.add_argument('-r', '--retry_limit',
-                        required=False,
-                        help='Max number of retries on a download before erroring out')
-    
     args = parser.parse_args()
     
     storage = LocalStorage(args.target_directory)
     
+    print 'Retrieving Feed'
     for scene in SceneFeed(args.email).get_items(args.order):
         storage.store(scene)
