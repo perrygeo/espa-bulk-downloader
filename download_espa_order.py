@@ -1,136 +1,125 @@
 #!/usr/bin/env python
-
 """
-Author: David Hill
-Date: 01/31/2014
-Purpose: A simple python client that will download all available (completed) scenes for
-         a user order(s).
-
-Requires: Python feedparser and standard Python installation.     
-
-Version: 1.0
+Author: Clay Austin, David Hill
+Date: 05/09/2016
+Purpose: A simple python client for downloading completed scenes from a users order(s).
+Requires: a standard Python install
+Version: 2.0
 """
 
-import feedparser
+import os
+import json
+import time
+import base64
+import random
+import shutil
 import urllib2
 import argparse
-import shutil
-import os
-import time
-import random
 
 
-class SceneFeed(object):
-    """SceneFeed parses the ESPA RSS Feed for the named email address and generates
-    the list of Scenes that are available"""
-    
-    def __init__(self, email, host="http://espa.cr.usgs.gov"):
-        """Construct a SceneFeed.
-        
-        Keyword arguments:
-        email -- Email address orders were placed with
-        host  -- http url of the RSS feed host
-        """
-        
-        self.email = email
-        
-        if not host.startswith('http://'):
-            host = ''.join(["http://", host])
-        self.host = host
-        
-        self.feed_url = "%s/ordering/status/%s/rss/" % (self.host, self.email)
+class ESPADownloader(object):
 
-    def get_items(self, orderid='ALL'):
-        """get_items generates Scene objects for all scenes that are available to be
-        downloaded.  Supply an orderid to look for a particular order, otherwise all
-        orders for self.email will be returned"""
-        
-        #yield Scenes with download urls
-        feed = feedparser.parse(self.feed_url)
-                
-        for entry in feed.entries:
+    def __init__(self, username, passwd, host):
+        self.host = host or "http://espa.cr.usgs.gov"
+        self.api_url = self.host + "/api/v0/item-status/{}"
+        self.username = username
+        self.passwd = passwd
 
-            #description field looks like this
-            #'scene_status:thestatus,orderid:theid,orderdate:thedate'
-            scene_order = entry.description.split(',')[1].split(':')[1]
+    def get_completed_scenes(self, orderid):
+        request = urllib2.Request(self.api_url.format(orderid))
+        base64string = base64.b64encode('%s:%s' % (self.username, self.passwd))
+        request.add_header("Authorization", "Basic %s" % base64string)
+        result = urllib2.urlopen(request)
 
-            #only return values if they are in the requested order            
-            if orderid == "ALL" or scene_order == orderid:
-                yield Scene(entry.link, scene_order)
-            
-                
-class Scene(object):
-    
-    def __init__(self, srcurl, orderid):
-    
-        self.srcurl = srcurl
-    
-        self.orderid = orderid
-        
-        parts = self.srcurl.split("/")
-     
-        self.filename = parts[len(parts) - 1]
-        
-        self.name = self.filename.split('.tar.gz')[0]
-        
-                  
+        download_urls = []
+
+        if result.code == 200:
+            data = json.loads(result.read())
+            if "msg" in data.keys():
+                return data["msg"]
+            else:
+                scene_list = data['orderid'][orderid]
+                for item in scene_list:
+                    if item['status'] == 'complete':
+                        download_urls.append(item['product_dload_url'])
+                return download_urls
+        elif result.code == 403:
+            return "User authentication failed"
+        else:
+            return "sorry, there was an issue accessing your data." \
+                   "please try again later"
+
+
 class LocalStorage(object):
-    
-    def __init__(self, basedir):
-        self.basedir = basedir
 
-    def directory_path(self, scene):
-        return ''.join([self.basedir, os.sep, scene.orderid, os.sep])
-        
-    def scene_path(self, scene):
-        return ''.join([self.directory_path(scene), scene.filename])
-    
-    def tmp_scene_path(self, scene):
-        return ''.join([self.directory_path(scene), scene.filename, '.part'])
-    
-    def is_stored(self, scene):        
-        return os.path.exists(self.scene_path(scene))        
-    
-    def store(self, scene):
-        
-        if self.is_stored(scene):
+    def __init__(self, basedir, orderid):
+        self.basedir = basedir
+        self.orderid = orderid
+
+    def directory_path(self):
+        return ''.join([self.basedir, os.sep, self.orderid, os.sep])
+
+    def scene_path(self, scene_tar):
+        return ''.join([self.directory_path(), scene_tar])
+
+    def tmp_scene_path(self, scene_tar):
+        return ''.join([self.directory_path(), scene_tar, '.part'])
+
+    def is_stored(self, scene_tar):
+        # <tarname>.tar.gz
+        return os.path.exists(self.scene_path(scene_tar))
+
+    def file_name(self, scene_tar):
+        # 'http://espa-dev.cr.usgs.gov/orders/<order>/<tarname>.tar.gz'
+        _slist = scene_tar.split("/")
+        _slist.reverse()
+        return _slist[0]
+
+    def store(self, scene_url):
+
+        scene_file = self.file_name(scene_url)
+
+        if self.is_stored(scene_file):
+            if verbose is not False:
+                print scene_file, "already downloaded, skipping.."
             return
-                    
-        download_directory = self.directory_path(scene)
-        
+
+        download_directory = self.directory_path()
+
         #make sure we have a target to land the scenes
         if not os.path.exists(download_directory):
             os.makedirs(download_directory)
             print ("Created target_directory:%s" % download_directory)
-        
-        req = urllib2.Request(scene.srcurl)
+
+        req = urllib2.Request(scene_url)
         req.get_method = lambda: 'HEAD'
 
         head = urllib2.urlopen(req)
         file_size = int(head.headers['Content-Length'])
 
-        if os.path.exists(self.tmp_scene_path(scene)):
-            first_byte = os.path.getsize(self.tmp_scene_path(scene))
+        if os.path.exists(self.tmp_scene_path(scene_file)):
+            first_byte = os.path.getsize(self.tmp_scene_path(scene_file))
         else:
             first_byte = 0
 
-        print ("Downloading %s to %s" % (scene.name, download_directory))
+        print ("Downloading %s to %s" % (scene_file, download_directory))
 
         while first_byte < file_size:
-            first_byte = self._download(first_byte)
+            first_byte = self._download(first_byte, scene_url)
             time.sleep(random.randint(5, 30))
 
-        os.rename(self.tmp_scene_path(scene), self.scene_path(scene))
+        os.rename(self.tmp_scene_path(scene_file), self.scene_path(scene_file))
 
-    def _download(self, first_byte):
-        req = urllib2.Request(scene.srcurl)
+    def _download(self, first_byte, scene_url):
+        req = urllib2.Request(scene_url)
         req.headers['Range'] = 'bytes={}-'.format(first_byte)
+        scene_file = self.file_name(scene_url)
 
-        with open(self.tmp_scene_path(scene), 'ab') as target:
+        with open(self.tmp_scene_path(scene_file), 'ab') as target:
             source = urllib2.urlopen(req)
             shutil.copyfileobj(source, target)
 
-        return os.path.getsize(self.tmp_scene_path(scene))
+        return os.path.getsize(self.tmp_scene_path(scene_file))
 
 
 if __name__ == '__main__':
@@ -150,29 +139,45 @@ if __name__ == '__main__':
     e_parts.append('------------\n')
     e_parts.append('Examples:\n')
     e_parts.append('------------\n')
-    e_parts.append('Linux/Mac: ./download_espa_order.py -e your_email@server.com -o ALL -d /some/directory/with/free/space\n\n') 
+    e_parts.append('Linux/Mac: ./download_espa_order.py -e your_email@server.com -o ALL -d /some/directory/with/free/space\n\n')
     e_parts.append('Windows:   C:\python27\python download_espa_order.py -e your_email@server.com -o ALL -d C:\some\directory\with\\free\space')
     e_parts.append('\n ')
     epilog = ''.join(e_parts)
- 
+
     parser = argparse.ArgumentParser(epilog=epilog, formatter_class=argparse.RawDescriptionHelpFormatter)
-    
-    parser.add_argument("-e", "--email", 
-                        required=True,
-                        help="email address for the user that submitted the order)")
-                        
+
     parser.add_argument("-o", "--order",
                         required=True,
                         help="which order to download (use ALL for every order)")
-                        
+
     parser.add_argument("-d", "--target_directory",
                         required=True,
                         help="where to store the downloaded scenes")
 
+    parser.add_argument("-u", "--username",
+                        required=True,
+                        help="EE/ESPA account username")
+
+    parser.add_argument("-p", "--password",
+                        required=True,
+                        help="EE/ESPA account password")
+
+    parser.add_argument("-v", "--verbose",
+                        required=False,
+                        help="be vocal about process")
+
+    parser.add_argument("-i", "--host",
+                        required=False)
+
     args = parser.parse_args()
-    
-    storage = LocalStorage(args.target_directory)
-    
-    print 'Retrieving Feed'
-    for scene in SceneFeed(args.email).get_items(args.order):
-        storage.store(scene)
+
+    storage = LocalStorage(args.target_directory, args.order)
+
+    print 'Retrieving Products'
+    scenes = ESPADownloader(args.username, args.password, args.host).get_completed_scenes(args.order)
+    verbose = args.verbose or False
+    if isinstance(scenes, str):
+        print scenes
+    else:
+        for scene in scenes:
+            storage.store(scene)
