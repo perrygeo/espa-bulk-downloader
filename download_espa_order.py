@@ -139,8 +139,8 @@ if __name__ == '__main__':
     e_parts.append('------------\n')
     e_parts.append('Examples:\n')
     e_parts.append('------------\n')
-    e_parts.append('Linux/Mac: ./download_espa_order.py -e your_email@server.com -o ALL -d /some/directory/with/free/space\n\n')
-    e_parts.append('Windows:   C:\python27\python download_espa_order.py -e your_email@server.com -o ALL -d C:\some\directory\with\\free\space')
+    e_parts.append('Linux/Mac: ./download_espa_order.py -u yourusername -p yourpassword -o ALL -d /some/directory/with/free/space\n\n')
+    e_parts.append('Windows:   C:\python27\python download_espa_order.py -u yourusername -p yourpassword -o ALL -d C:\some\directory\with\\free\space')
     e_parts.append('\n ')
     epilog = ''.join(e_parts)
 
