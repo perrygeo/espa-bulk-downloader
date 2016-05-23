@@ -18,22 +18,27 @@ import shutil
 import os
 import time
 import random
+import base64
 
 
 class SceneFeed(object):
     """SceneFeed parses the ESPA RSS Feed for the named email address and generates
     the list of Scenes that are available"""
     
-    def __init__(self, email, host="http://espa.cr.usgs.gov"):
+    def __init__(self, email, username, password, host):
         """Construct a SceneFeed.
         
         Keyword arguments:
         email -- Email address orders were placed with
         host  -- http url of the RSS feed host
         """
-        
+
+        self.host = host or "http://espa.cr.usgs.gov"
+
         self.email = email
-        
+        self.user = username
+        self.passw = password
+
         if not host.startswith('http://'):
             host = ''.join(["http://", host])
         self.host = host
@@ -46,8 +51,20 @@ class SceneFeed(object):
         orders for self.email will be returned"""
         
         #yield Scenes with download urls
-        feed = feedparser.parse(self.feed_url)
-                
+
+        auth_str = "%s:%s" % (self.user, self.passw)
+        bauth = base64.b64encode(auth_str)
+
+        feed = feedparser.parse(self.feed_url, request_headers={"Authorization": bauth})
+
+        if feed.status == 403:
+            print "user authentication failed"
+            exit()
+
+        if feed.status == 404:
+            print "there was a problem retrieving your order. verify your orderid is correct"
+            exit()
+
         for entry in feed.entries:
 
             #description field looks like this
@@ -169,10 +186,26 @@ if __name__ == '__main__':
                         required=True,
                         help="where to store the downloaded scenes")
 
+    parser.add_argument("-u", "--username",
+                        required=True,
+                        help="EE/ESPA account username")
+
+    parser.add_argument("-p", "--password",
+                        required=True,
+                        help="EE/ESPA account password")
+
+    parser.add_argument("-v", "--verbose",
+                        required=False,
+                        help="be vocal about process")
+
+    parser.add_argument("-i", "--host",
+                        required=False)
+
+
     args = parser.parse_args()
     
     storage = LocalStorage(args.target_directory)
     
     print 'Retrieving Feed'
-    for scene in SceneFeed(args.email).get_items(args.order):
+    for scene in SceneFeed(args.email, args.username, args.password, args.host).get_items(args.order):
         storage.store(scene)
