@@ -23,9 +23,13 @@ download_espa_order.py -h
 
 `-d or --target_directory` The local directory to store downloaded scenes
 
-Linux/Mac Example: `python ./download_espa_order.py -e your_email@server.com -o ALL -d /some/directory/with/free/space`
+`-u or --username` Your ERS username
 
-Windows Example: `C:\python27\python download_espa_order.py -e your_email@server.com -o ALL -d C:\some\directory\with\free\space`
+`-p or --password` Your ERS password
+
+Linux/Mac Example: `python ./download_espa_order.py -e your_email@server.com -o ALL -d /some/directory/with/free/space -u foo -p bar`
+
+Windows Example: `C:\python27\python download_espa_order.py -e your_email@server.com -o ALL -d C:\some\directory\with\free\space -u foo -p bar`
 
 # Notes
 Retrieves all completed scenes for the user/order
