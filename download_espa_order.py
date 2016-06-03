@@ -25,24 +25,19 @@ class SceneFeed(object):
     """SceneFeed parses the ESPA RSS Feed for the named email address and generates
     the list of Scenes that are available"""
     
-    def __init__(self, email, username, password, host):
+    def __init__(self, email, username, password, host="http://espa.cr.usgs.gov"):
         """Construct a SceneFeed.
         
         Keyword arguments:
         email -- Email address orders were placed with
         host  -- http url of the RSS feed host
         """
-
-        self.host = host or "http://espa.cr.usgs.gov"
-
+        host="http://espa.cr.usgs.gov"
+        self.host = host
         self.email = email
         self.user = username
         self.passw = password
 
-        if not host.startswith('http://'):
-            host = ''.join(["http://", host])
-        self.host = host
-        
         self.feed_url = "%s/ordering/status/%s/rss/" % (self.host, self.email)
 
     def get_items(self, orderid='ALL'):
