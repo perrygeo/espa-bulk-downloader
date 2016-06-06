@@ -32,6 +32,9 @@ class SceneFeed(object):
         email -- Email address orders were placed with
         host  -- http url of the RSS feed host
         """
+        if not host:
+            host = "http://espa.cr.usgs.gov"
+
         self.host = host
         self.email = email
         self.user = username
