@@ -12,7 +12,7 @@ Version: 1.0
 """
 
 import feedparser
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import argparse
 import shutil
 import os
@@ -55,11 +55,11 @@ class SceneFeed(object):
         feed = feedparser.parse(self.feed_url, request_headers={"Authorization": bauth})
 
         if feed.status == 403:
-            print "user authentication failed"
+            print("user authentication failed")
             exit()
 
         if feed.status == 404:
-            print "there was a problem retrieving your order. verify your orderid is correct"
+            print("there was a problem retrieving your order. verify your orderid is correct")
             exit()
 
         for entry in feed.entries:
@@ -115,12 +115,12 @@ class LocalStorage(object):
         #make sure we have a target to land the scenes
         if not os.path.exists(download_directory):
             os.makedirs(download_directory)
-            print ("Created target_directory:%s" % download_directory)
+            print(("Created target_directory:%s" % download_directory))
         
-        req = urllib2.Request(scene.srcurl)
+        req = urllib.request.Request(scene.srcurl)
         req.get_method = lambda: 'HEAD'
 
-        head = urllib2.urlopen(req)
+        head = urllib.request.urlopen(req)
         file_size = int(head.headers['Content-Length'])
 
         if os.path.exists(self.tmp_scene_path(scene)):
@@ -128,7 +128,7 @@ class LocalStorage(object):
         else:
             first_byte = 0
 
-        print ("Downloading %s to %s" % (scene.name, download_directory))
+        print(("Downloading %s to %s" % (scene.name, download_directory)))
 
         while first_byte < file_size:
             first_byte = self._download(first_byte)
@@ -137,11 +137,11 @@ class LocalStorage(object):
         os.rename(self.tmp_scene_path(scene), self.scene_path(scene))
 
     def _download(self, first_byte):
-        req = urllib2.Request(scene.srcurl)
+        req = urllib.request.Request(scene.srcurl)
         req.headers['Range'] = 'bytes={}-'.format(first_byte)
 
         with open(self.tmp_scene_path(scene), 'ab') as target:
-            source = urllib2.urlopen(req)
+            source = urllib.request.urlopen(req)
             shutil.copyfileobj(source, target)
 
         return os.path.getsize(self.tmp_scene_path(scene))
@@ -203,6 +203,6 @@ if __name__ == '__main__':
     
     storage = LocalStorage(args.target_directory)
     
-    print 'Retrieving Feed'
+    print('Retrieving Feed')
     for scene in SceneFeed(args.email, args.username, args.password, args.host).get_items(args.order):
         storage.store(scene)
